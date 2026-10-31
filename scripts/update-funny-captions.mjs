@@ -199,3 +199,4 @@ const funnyMemories = [
 const dataPath = path.resolve('public/data/memories.json');
 fs.writeFileSync(dataPath, JSON.stringify(funnyMemories, null, 2), 'utf8');
 console.log('Successfully updated memories with hilarious captions!');
+
