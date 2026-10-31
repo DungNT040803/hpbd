@@ -14,7 +14,11 @@ class BirthdayApp {
     this.currentIndex = 0;
     this.isAutoTour = false;
     this.autoTourTimer = null;
-    this.isTransitioning = false;
+
+    // Spline-based smooth camera flight
+    this.currentProgress = 0;
+    this.targetProgress = 0;
+    this.totalSteps = 1;
 
     // Three.js instances
     this.scene = null;
@@ -25,16 +29,19 @@ class BirthdayApp {
     this.cake = null;
     this.clock = new THREE.Clock();
 
-    // Interaction
+    // Interaction & Parallax
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2(-999, -999);
-    this.lookTarget = new THREE.Vector3(0, 0, 0);
+    this.smoothMouse = new THREE.Vector2(0, 0);
+    this.camPos = new THREE.Vector3();
+    this.lookTarget = new THREE.Vector3();
 
     this.init();
   }
 
   async init() {
     await this.loadData();
+    this.totalSteps = this.memories.length; // last step is cake
     this.setupUI();
     this.setupThree();
     this.setupEventListeners();
@@ -53,7 +60,7 @@ class BirthdayApp {
     } catch (e) {
       console.warn('Fallback data loading error:', e);
       this.config = {
-        recipientName: "Bạn",
+        recipientName: "Azai",
         title: "Chuyến Du Hành Ngân Hà Kỷ Niệm",
         subtitle: "Mỗi khoảnh khắc bên nhau đều là một vì sao sáng lấp lánh",
         letter: {
@@ -68,7 +75,6 @@ class BirthdayApp {
   }
 
   setupUI() {
-    // Populate Titles & Recipient Name
     const introName = document.getElementById('intro-name');
     const introSubtitle = document.getElementById('intro-subtitle');
     const logoText = document.getElementById('logo-text');
@@ -87,7 +93,7 @@ class BirthdayApp {
         chip.innerText = `${year}`;
         chip.addEventListener('click', () => {
           const firstIdx = this.memories.findIndex(m => m.year === year);
-          if (firstIdx !== -1) this.flyTo(firstIdx);
+          if (firstIdx !== -1) this.flyToIndex(firstIdx);
         });
         yearNav.appendChild(chip);
       });
@@ -96,119 +102,111 @@ class BirthdayApp {
       const cakeChip = document.createElement('button');
       cakeChip.className = 'year-chip';
       cakeChip.innerText = '🎂 Bánh Sinh Nhật';
-      cakeChip.addEventListener('click', () => this.flyTo(this.memories.length));
+      cakeChip.addEventListener('click', () => this.flyToIndex(this.memories.length));
       yearNav.appendChild(cakeChip);
     }
   }
 
   setupThree() {
-    // Scene
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x070714, 0.005);
+    // Subtle distance fog so stars are not blacked out
+    this.scene.fog = new THREE.FogExp2(0x060515, 0.0008);
 
-    // Camera
-    const fov = window.innerWidth < 768 ? 65 : 52;
-    this.camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 0.1, 800);
-    this.camera.position.set(0, 15, 35);
-    this.lookTarget.set(0, 0, 0);
-    this.camera.lookAt(this.lookTarget);
+    const fov = window.innerWidth < 768 ? 62 : 50;
+    this.camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 0.1, 1000);
 
     // Renderer
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.15;
+    this.renderer.toneMappingExposure = 1.2;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.container.appendChild(this.renderer.domElement);
 
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+    // Dynamic Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
     this.scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xfff7ed, 1.5);
-    dirLight.position.set(20, 40, 20);
+    const dirLight = new THREE.DirectionalLight(0xfff1f2, 1.6);
+    dirLight.position.set(30, 45, 25);
     this.scene.add(dirLight);
 
-    const purpleLight = new THREE.PointLight(0xa855f7, 2.5, 120);
-    purpleLight.position.set(-30, 20, -50);
-    this.scene.add(purpleLight);
+    const blueLight = new THREE.PointLight(0x38bdf8, 2.8, 140);
+    blueLight.position.set(-25, 20, -40);
+    this.scene.add(blueLight);
 
-    // Cosmic Galaxy & Environment
+    const roseLight = new THREE.PointLight(0xf43f5e, 2.5, 120);
+    roseLight.position.set(25, -15, -90);
+    this.scene.add(roseLight);
+
+    // Cosmic Galaxy & Memory Universe
     this.galaxy = new CosmicGalaxy(this.scene);
-
-    // Memory Constellation Universe
     this.universe = new MemoryUniverse(this.scene, this.memories, (mem, idx) => {
       this.openMemoryModal(mem);
     });
 
-    // 3D Birthday Cake at the end of the journey
+    // 3D Birthday Cake
     this.cake = new BirthdayCake(this.scene);
     this.cake.group.position.copy(this.universe.cakePosition);
+
+    // Set initial camera position looking into the galaxy
+    this.camera.position.set(0, 10, 24);
+    this.camera.lookAt(0, 0, -20);
   }
 
   setupEventListeners() {
     window.addEventListener('resize', () => this.onWindowResize());
 
-    // Mouse move for 3D card hovering
+    // Mouse movement with smooth parallax
     window.addEventListener('pointermove', (e) => {
       this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
     });
 
-    // Click in 3D canvas
+    // Raycast click on 3D cards
     window.addEventListener('pointerdown', (e) => {
-      // Ignore if clicking on UI overlay
       if (e.target.closest('#hud-overlay, #cake-ceremony-panel, dialog')) return;
 
       this.raycaster.setFromCamera(this.mouse, this.camera);
       const intersects = this.raycaster.intersectObjects(this.universe.cardMeshes, false);
       if (intersects.length > 0) {
-        const hit = intersects[0].object;
-        this.universe.handleClick(hit);
+        this.universe.handleClick(intersects[0].object);
       }
     });
 
-    // Wheel navigation (smooth scroll through memories)
-    let wheelCooldown = false;
+    // Silky Smooth Mouse Wheel flight along curve
     window.addEventListener('wheel', (e) => {
       if (document.querySelector('dialog[open]')) return;
-      if (wheelCooldown) return;
-      wheelCooldown = true;
-      setTimeout(() => { wheelCooldown = false; }, 400);
-
-      if (e.deltaY > 20) {
-        this.nextMemory();
-      } else if (e.deltaY < -20) {
-        this.prevMemory();
-      }
+      const delta = e.deltaY * 0.00035;
+      this.targetProgress = Math.max(0, Math.min(1, this.targetProgress + delta));
     }, { passive: true });
 
-    // Touch swipe navigation for mobile
+    // Touch Drag flight for mobile
     let touchStartY = 0;
     window.addEventListener('touchstart', (e) => {
       touchStartY = e.touches[0].clientY;
     }, { passive: true });
 
-    window.addEventListener('touchend', (e) => {
+    window.addEventListener('touchmove', (e) => {
       if (document.querySelector('dialog[open]')) return;
-      const touchEndY = e.changedTouches[0].clientY;
-      const diff = touchStartY - touchEndY;
-      if (diff > 50) this.nextMemory();
-      else if (diff < -50) this.prevMemory();
+      const touchY = e.touches[0].clientY;
+      const deltaY = (touchStartY - touchY) * 0.0008;
+      touchStartY = touchY;
+      this.targetProgress = Math.max(0, Math.min(1, this.targetProgress + deltaY));
     }, { passive: true });
 
     // UI Buttons
     document.getElementById('btn-start')?.addEventListener('click', () => this.startExperience());
     document.getElementById('btn-next')?.addEventListener('click', () => this.nextMemory());
     document.getElementById('btn-prev')?.addEventListener('click', () => this.prevMemory());
-    document.getElementById('btn-warp-cake')?.addEventListener('click', () => this.flyTo(this.memories.length));
+    document.getElementById('btn-warp-cake')?.addEventListener('click', () => this.flyToIndex(this.memories.length));
     document.getElementById('btn-sound')?.addEventListener('click', () => this.toggleSound());
     document.getElementById('btn-auto-tour')?.addEventListener('click', () => this.toggleAutoTour());
     document.getElementById('btn-blow-candles')?.addEventListener('click', () => this.blowCandles());
     document.getElementById('btn-open-letter')?.addEventListener('click', () => this.openLetterModal());
 
-    // Pause video and clean up media container when modal closes
+    // Pause video when modal closes
     const memoryModal = document.getElementById('memory-modal');
     if (memoryModal) {
       memoryModal.addEventListener('close', () => {
@@ -226,7 +224,6 @@ class BirthdayApp {
     }
   }
 
-  // Modern Web Guidance: Light dismiss fallback for <dialog closedby="any">
   setupModalFallbacks() {
     if (!('closedBy' in HTMLDialogElement.prototype)) {
       const outside = (e, dialog) => {
@@ -253,91 +250,35 @@ class BirthdayApp {
     if (intro) intro.classList.add('hidden');
     if (hud) hud.classList.remove('hidden');
 
-    this.flyTo(0, 2.5);
+    this.flyToIndex(0, 2.2);
   }
 
-  flyTo(index, duration = 1.8) {
-    if (this.isTransitioning) return;
-    this.isTransitioning = true;
-    this.currentIndex = Math.max(0, Math.min(index, this.memories.length));
+  flyToIndex(index, duration = 1.6) {
+    this.currentIndex = Math.max(0, Math.min(index, this.totalSteps));
+    const targetT = this.currentIndex / this.totalSteps;
 
     sound.playWhoosh();
 
-    const targetPos = this.universe.getPointPosition(this.currentIndex);
-    const isCake = this.currentIndex === this.memories.length;
-
-    // Desired camera position
-    let camTargetPos;
-    let lookAtPos;
-
-    if (isCake) {
-      camTargetPos = new THREE.Vector3(targetPos.x, targetPos.y + 4.5, targetPos.z + 12);
-      lookAtPos = new THREE.Vector3(targetPos.x, targetPos.y + 2.5, targetPos.z);
-    } else {
-      camTargetPos = new THREE.Vector3(targetPos.x, targetPos.y + 0.4, targetPos.z + 7.5);
-      lookAtPos = new THREE.Vector3(targetPos.x, targetPos.y, targetPos.z);
-    }
-
-    gsap.killTweensOf(this.camera.position);
-    gsap.killTweensOf(this.lookTarget);
-
-    gsap.to(this.camera.position, {
-      x: camTargetPos.x,
-      y: camTargetPos.y,
-      z: camTargetPos.z,
+    gsap.to(this, {
+      targetProgress: targetT,
       duration: duration,
-      ease: 'power2.inOut',
-      onComplete: () => {
-        this.isTransitioning = false;
-      }
+      ease: 'power2.out'
     });
-
-    gsap.to(this.lookTarget, {
-      x: lookAtPos.x,
-      y: lookAtPos.y,
-      z: lookAtPos.z,
-      duration: duration,
-      ease: 'power2.inOut',
-      onUpdate: () => {
-        this.camera.lookAt(this.lookTarget);
-      }
-    });
-
-    this.updateHUD(isCake);
-  }
-
-  updateHUD(isCake) {
-    const indicator = document.getElementById('memory-indicator');
-    const cakePanel = document.getElementById('cake-ceremony-panel');
-    const chips = document.querySelectorAll('.year-chip');
-
-    if (isCake) {
-      if (indicator) indicator.innerText = `🎂 Bánh Sinh Nhật`;
-      if (cakePanel) cakePanel.classList.remove('hidden');
-      chips.forEach(c => c.classList.toggle('active', c.innerText.includes('Bánh')));
-    } else {
-      const currentMem = this.memories[this.currentIndex];
-      if (indicator && currentMem) {
-        indicator.innerText = `[${this.currentIndex + 1} / ${this.memories.length}] • ${currentMem.date}`;
-      }
-      if (cakePanel) cakePanel.classList.add('hidden');
-      chips.forEach(c => c.classList.toggle('active', currentMem && c.innerText === `${currentMem.year}`));
-    }
   }
 
   nextMemory() {
-    if (this.currentIndex < this.memories.length) {
-      this.flyTo(this.currentIndex + 1);
+    if (this.currentIndex < this.totalSteps) {
+      this.flyToIndex(this.currentIndex + 1);
     } else {
-      this.flyTo(0);
+      this.flyToIndex(0);
     }
   }
 
   prevMemory() {
     if (this.currentIndex > 0) {
-      this.flyTo(this.currentIndex - 1);
+      this.flyToIndex(this.currentIndex - 1);
     } else {
-      this.flyTo(this.memories.length);
+      this.flyToIndex(this.totalSteps);
     }
   }
 
@@ -402,9 +343,7 @@ class BirthdayApp {
         video.style.backgroundColor = '#000';
         mediaContainer.appendChild(video);
 
-        video.play().catch(() => {
-          // Autoplay policy prevented unmuted auto-play, user can click controls
-        });
+        video.play().catch(() => {});
       } else {
         const img = document.createElement('img');
         img.src = memory.url;
@@ -429,7 +368,6 @@ class BirthdayApp {
     if (blowBtn) blowBtn.disabled = true;
 
     this.cake.blowOut(() => {
-      // Grand celebration
       launchBirthdayFireworks();
       if (blowBtn) blowBtn.classList.add('hidden');
       if (openLetterBtn) openLetterBtn.classList.remove('hidden');
@@ -453,7 +391,7 @@ class BirthdayApp {
     if (body) {
       body.innerHTML = '';
       const paragraphs = letterData.body || [];
-      paragraphs.forEach((p, pIdx) => {
+      paragraphs.forEach((p) => {
         const pElem = document.createElement('p');
         pElem.style.marginBottom = '14px';
         pElem.innerText = p;
@@ -468,9 +406,32 @@ class BirthdayApp {
 
   onWindowResize() {
     this.camera.aspect = window.innerWidth / window.innerHeight;
-    this.camera.fov = window.innerWidth < 768 ? 65 : 52;
+    this.camera.fov = window.innerWidth < 768 ? 62 : 50;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  updateHUDState() {
+    const isCake = this.currentProgress > 0.94;
+    const indicator = document.getElementById('memory-indicator');
+    const cakePanel = document.getElementById('cake-ceremony-panel');
+    const chips = document.querySelectorAll('.year-chip');
+
+    // Nearest memory index
+    const nearestIdx = Math.round(this.currentProgress * this.totalSteps);
+
+    if (isCake) {
+      if (indicator) indicator.innerText = `🎂 Bánh Sinh Nhật`;
+      if (cakePanel) cakePanel.classList.remove('hidden');
+      chips.forEach(c => c.classList.toggle('active', c.innerText.includes('Bánh')));
+    } else {
+      const currentMem = this.memories[nearestIdx];
+      if (indicator && currentMem) {
+        indicator.innerText = `[${nearestIdx + 1} / ${this.memories.length}] • ${currentMem.date}`;
+      }
+      if (cakePanel) cakePanel.classList.add('hidden');
+      chips.forEach(c => c.classList.toggle('active', currentMem && c.innerText === `${currentMem.year}`));
+    }
   }
 
   animate() {
@@ -478,6 +439,46 @@ class BirthdayApp {
 
     const delta = this.clock.getDelta();
     const time = this.clock.getElapsedTime();
+
+    // Silky smooth damp interpolation for camera flight
+    this.currentProgress = THREE.MathUtils.damp(this.currentProgress, this.targetProgress, 4.2, delta);
+
+    // Smooth mouse parallax
+    this.smoothMouse.x = THREE.MathUtils.damp(this.smoothMouse.x, this.mouse.x, 3.5, delta);
+    this.smoothMouse.y = THREE.MathUtils.damp(this.smoothMouse.y, this.mouse.y, 3.5, delta);
+
+    // Compute camera position & lookAt along curve
+    if (this.universe && this.universe.curve) {
+      const curve = this.universe.curve;
+      const t = Math.max(0, Math.min(0.999, this.currentProgress));
+
+      // Camera position on curve + offset
+      const pointOnCurve = curve.getPoint(t);
+      const isCakeZone = t > 0.93;
+
+      if (isCakeZone) {
+        // Smoothly settle around cake
+        const cakePos = this.universe.cakePosition;
+        this.camPos.set(cakePos.x, cakePos.y + 4.2, cakePos.z + 13.5);
+        this.lookTarget.set(cakePos.x, cakePos.y + 2.2, cakePos.z);
+      } else {
+        // Flying along the curve
+        this.camPos.copy(pointOnCurve);
+        this.camPos.z += 8.2;
+        this.camPos.y += 0.5;
+
+        // Look slightly forward into the curve
+        const lookAheadT = Math.min(t + 0.03, 1.0);
+        this.lookTarget.copy(curve.getPoint(lookAheadT));
+      }
+
+      // Apply subtle mouse parallax
+      this.camPos.x += this.smoothMouse.x * 1.4;
+      this.camPos.y += this.smoothMouse.y * 1.0;
+
+      this.camera.position.copy(this.camPos);
+      this.camera.lookAt(this.lookTarget);
+    }
 
     // Raycast hover check
     this.raycaster.setFromCamera(this.mouse, this.camera);
@@ -488,6 +489,9 @@ class BirthdayApp {
       this.universe.handleHover(null);
     }
 
+    // Update HUD indicator
+    this.updateHUDState();
+
     // Module updates
     this.galaxy.update(delta, time);
     this.universe.update(time, delta);
@@ -497,7 +501,6 @@ class BirthdayApp {
   }
 }
 
-// Start application
 window.addEventListener('DOMContentLoaded', () => {
   new BirthdayApp();
 });

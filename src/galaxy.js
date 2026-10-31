@@ -1,114 +1,205 @@
 import * as THREE from 'three';
+import { createGlowCircleTexture, createSparkleTexture, createHeartTexture } from './textures.js';
 
 export class CosmicGalaxy {
   constructor(scene) {
     this.scene = scene;
     this.shootingStars = [];
-    this.createStarfield();
-    this.createNebulae();
+    this.glowTexture = createGlowCircleTexture();
+    this.sparkleTexture = createSparkleTexture();
+    this.heartTexture = createHeartTexture();
+
+    this.createSpiralMilkyWay();
+    this.createDeepStarfield();
+    this.createFloatingHearts();
+    this.createNebulaeClouds();
     this.createMeteors();
   }
 
-  createStarfield() {
-    const starCount = 5000;
+  // Majestic dense 4-arm Spiral Galaxy with 22,000 stars
+  createSpiralMilkyWay() {
+    const parameters = {
+      count: 22000,
+      size: 1.8,
+      radius: 180,
+      branches: 4,
+      spin: 1.2,
+      randomness: 0.55,
+      power: 3.5,
+      insideColor: '#ffe066',  // Warm glowing star core
+      midColor: '#f43f5e',     // Rose romantic nebula
+      outsideColor: '#38bdf8'  // Deep cyan starlight
+    };
+
     const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(starCount * 3);
-    const colors = new Float32Array(starCount * 3);
-    const sizes = new Float32Array(starCount);
+    const positions = new Float32Array(parameters.count * 3);
+    const colors = new Float32Array(parameters.count * 3);
+    const scales = new Float32Array(parameters.count);
 
-    const colorPalette = [
-      new THREE.Color(0xffffff), // Pure white
-      new THREE.Color(0x38bdf8), // Cyan starlight
-      new THREE.Color(0xf472b6), // Soft rose pink
-      new THREE.Color(0xfde047), // Warm golden
-      new THREE.Color(0xa855f7)  // Nebula purple
-    ];
+    const colorInside = new THREE.Color(parameters.insideColor);
+    const colorMid = new THREE.Color(parameters.midColor);
+    const colorOutside = new THREE.Color(parameters.outsideColor);
 
-    for (let i = 0; i < starCount; i++) {
-      // Spherical distribution with radius between 80 and 450
-      const radius = 80 + Math.random() * 370;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(Math.random() * 2 - 1);
+    for (let i = 0; i < parameters.count; i++) {
+      // Radius from center
+      const r = Math.pow(Math.random(), parameters.power) * parameters.radius;
+      const spinAngle = r * parameters.spin;
+      const branchAngle = ((i % parameters.branches) / parameters.branches) * Math.PI * 2;
 
-      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-      positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-      positions[i * 3 + 2] = radius * Math.cos(phi);
+      // Randomness spread
+      const randomX = Math.pow(Math.random(), 2.2) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * r;
+      const randomY = Math.pow(Math.random(), 2.2) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * (r * 0.45);
+      const randomZ = Math.pow(Math.random(), 2.2) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * r;
 
-      const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
-      colors[i * 3] = color.r;
-      colors[i * 3 + 1] = color.g;
-      colors[i * 3 + 2] = color.b;
+      positions[i * 3] = Math.cos(branchAngle + spinAngle) * r + randomX;
+      positions[i * 3 + 1] = randomY - 20; // lower slightly below the memory path
+      positions[i * 3 + 2] = Math.sin(branchAngle + spinAngle) * r + randomZ - 100;
 
-      sizes[i] = Math.random() * 2.2 + 0.6;
+      // Color gradient from center to edge
+      const mixedColor = colorInside.clone();
+      const progress = r / parameters.radius;
+      if (progress < 0.4) {
+        mixedColor.lerp(colorMid, progress / 0.4);
+      } else {
+        mixedColor.copy(colorMid).lerp(colorOutside, (progress - 0.4) / 0.6);
+      }
+
+      // Add a sprinkle of white/gold sparkle
+      if (Math.random() > 0.88) {
+        mixedColor.setHex(0xffffff);
+      }
+
+      colors[i * 3] = mixedColor.r;
+      colors[i * 3 + 1] = mixedColor.g;
+      colors[i * 3 + 2] = mixedColor.b;
+
+      scales[i] = Math.random() * 2.2 + 0.8;
     }
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-    // Star texture generator (soft round particle with glow)
-    const canvas = document.createElement('canvas');
-    canvas.width = 64;
-    canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-    grad.addColorStop(0.2, 'rgba(240, 245, 255, 0.85)');
-    grad.addColorStop(0.6, 'rgba(200, 220, 255, 0.25)');
-    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 64, 64);
-
-    const starTexture = new THREE.CanvasTexture(canvas);
-
     const material = new THREE.PointsMaterial({
-      size: 1.6,
-      map: starTexture,
-      vertexColors: true,
-      transparent: true,
+      size: parameters.size,
+      sizeAttenuation: true,
+      depthWrite: false,
       blending: THREE.AdditiveBlending,
-      depthWrite: false
+      vertexColors: true,
+      map: this.glowTexture,
+      transparent: true,
+      opacity: 0.95
     });
 
-    this.stars = new THREE.Points(geometry, material);
-    this.scene.add(this.stars);
+    this.spiralGalaxy = new THREE.Points(geometry, material);
+    this.scene.add(this.spiralGalaxy);
   }
 
-  createNebulae() {
-    // Canvas texture for soft nebula cloud
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-    grad.addColorStop(0, 'rgba(255, 100, 200, 0.6)');
-    grad.addColorStop(0.4, 'rgba(120, 40, 200, 0.3)');
-    grad.addColorStop(0.8, 'rgba(30, 10, 80, 0.1)');
-    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 128, 128);
+  // Surrounding 360-degree deep space starfield (8,000 stars)
+  createDeepStarfield() {
+    const count = 8000;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
 
-    const nebulaTexture = new THREE.CanvasTexture(canvas);
+    const palette = [
+      new THREE.Color(0xffffff),
+      new THREE.Color(0xfde047),
+      new THREE.Color(0xf472b6),
+      new THREE.Color(0x38bdf8),
+      new THREE.Color(0xc084fc)
+    ];
+
+    for (let i = 0; i < count; i++) {
+      const radius = 120 + Math.random() * 500;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(Math.random() * 2 - 1);
+
+      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      positions[i * 3 + 2] = radius * Math.cos(phi) - 80;
+
+      const c = palette[Math.floor(Math.random() * palette.length)];
+      colors[i * 3] = c.r;
+      colors[i * 3 + 1] = c.g;
+      colors[i * 3 + 2] = c.b;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const material = new THREE.PointsMaterial({
+      size: 2.4,
+      sizeAttenuation: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      vertexColors: true,
+      map: this.sparkleTexture,
+      transparent: true,
+      opacity: 0.88
+    });
+
+    this.deepStars = new THREE.Points(geometry, material);
+    this.scene.add(this.deepStars);
+  }
+
+  // Floating glowing romantic hearts in space
+  createFloatingHearts() {
+    const heartCount = 75;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(heartCount * 3);
+
+    this.heartInitialY = new Float32Array(heartCount);
+    this.heartSpeeds = new Float32Array(heartCount);
+
+    for (let i = 0; i < heartCount; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 50;
+      const y = (Math.random() - 0.5) * 35;
+      positions[i * 3 + 1] = y;
+      positions[i * 3 + 2] = -Math.random() * 320; // along the timeline path
+
+      this.heartInitialY[i] = y;
+      this.heartSpeeds[i] = 0.5 + Math.random() * 0.8;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const material = new THREE.PointsMaterial({
+      size: 3.2,
+      sizeAttenuation: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      map: this.heartTexture,
+      transparent: true,
+      opacity: 0.82
+    });
+
+    this.heartMesh = new THREE.Points(geometry, material);
+    this.scene.add(this.heartMesh);
+  }
+
+  // Colorful soft volumetric nebula clouds
+  createNebulaeClouds() {
     this.nebulaGroup = new THREE.Group();
+    const colors = [0xf43f5e, 0x8b5cf6, 0x06b6d4, 0xf59e0b];
 
-    const nebulaColors = [0xdb2777, 0x7c3aed, 0x0284c7, 0xf59e0b];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 20; i++) {
       const mat = new THREE.SpriteMaterial({
-        map: nebulaTexture,
-        color: nebulaColors[i % nebulaColors.length],
+        map: this.glowTexture,
+        color: colors[i % colors.length],
         transparent: true,
-        opacity: 0.22,
+        opacity: 0.16,
         blending: THREE.AdditiveBlending,
         depthWrite: false
       });
       const sprite = new THREE.Sprite(mat);
-      const angle = (i / 12) * Math.PI * 2;
-      const dist = 90 + Math.random() * 60;
+      const angle = (i / 20) * Math.PI * 2;
+      const dist = 60 + Math.random() * 90;
       sprite.position.set(
         Math.cos(angle) * dist,
-        (Math.random() - 0.5) * 60,
-        Math.sin(angle) * dist
+        (Math.random() - 0.5) * 45,
+        -i * 16
       );
-      const scale = 70 + Math.random() * 50;
+      const scale = 50 + Math.random() * 45;
       sprite.scale.set(scale, scale, 1);
       this.nebulaGroup.add(sprite);
     }
@@ -117,23 +208,23 @@ export class CosmicGalaxy {
   }
 
   createMeteors() {
-    // Shooting stars pool
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       const geo = new THREE.BufferGeometry();
-      const pos = new Float32Array([0, 0, 0, -8, 5, 8]);
+      const pos = new Float32Array([0, 0, 0, -12, 8, 12]);
       geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
 
       const mat = new THREE.LineBasicMaterial({
         color: 0xffffff,
         transparent: true,
-        opacity: 0
+        opacity: 0,
+        linewidth: 2
       });
 
       const meteor = new THREE.Line(geo, mat);
       meteor.userData = {
         active: false,
-        speed: 1.5,
-        timer: Math.random() * 5
+        speed: 55,
+        timer: 1 + Math.random() * 4
       };
       this.shootingStars.push(meteor);
       this.scene.add(meteor);
@@ -141,39 +232,52 @@ export class CosmicGalaxy {
   }
 
   update(delta, time) {
-    // Slow cosmological rotation
-    if (this.stars) {
-      this.stars.rotation.y += delta * 0.012;
-      this.stars.rotation.x += delta * 0.005;
+    // Gentle hypnotic rotation of the spiral galaxy
+    if (this.spiralGalaxy) {
+      this.spiralGalaxy.rotation.y += delta * 0.025;
+    }
+
+    if (this.deepStars) {
+      this.deepStars.rotation.y -= delta * 0.005;
+      this.deepStars.rotation.x += delta * 0.003;
     }
 
     if (this.nebulaGroup) {
-      this.nebulaGroup.rotation.y += delta * 0.008;
+      this.nebulaGroup.rotation.z += delta * 0.006;
     }
 
-    // Update shooting stars
+    // Animate floating hearts
+    if (this.heartMesh) {
+      const pos = this.heartMesh.geometry.attributes.position.array;
+      const count = pos.length / 3;
+      for (let i = 0; i < count; i++) {
+        pos[i * 3 + 1] = this.heartInitialY[i] + Math.sin(time * this.heartSpeeds[i] + i) * 1.5;
+      }
+      this.heartMesh.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Shooting stars
     this.shootingStars.forEach(m => {
       m.userData.timer -= delta;
       if (m.userData.timer <= 0 && !m.userData.active) {
-        // Reset shooting star
         m.userData.active = true;
-        m.material.opacity = 1;
-        const startX = (Math.random() - 0.5) * 160;
-        const startY = 40 + Math.random() * 60;
-        const startZ = (Math.random() - 0.5) * 160;
+        m.material.opacity = 0.95;
+        const startX = (Math.random() - 0.5) * 140;
+        const startY = 30 + Math.random() * 50;
+        const startZ = -Math.random() * 260;
         m.position.set(startX, startY, startZ);
-        m.userData.speed = 45 + Math.random() * 30;
+        m.userData.speed = 55 + Math.random() * 40;
       }
 
       if (m.userData.active) {
         m.position.x += m.userData.speed * delta;
         m.position.y -= (m.userData.speed * 0.6) * delta;
-        m.position.z -= (m.userData.speed * 0.8) * delta;
-        m.material.opacity -= delta * 0.8;
+        m.position.z -= (m.userData.speed * 0.75) * delta;
+        m.material.opacity -= delta * 0.9;
 
         if (m.material.opacity <= 0) {
           m.userData.active = false;
-          m.userData.timer = 3 + Math.random() * 6; // next shooting star in 3-9s
+          m.userData.timer = 2 + Math.random() * 5;
         }
       }
     });
