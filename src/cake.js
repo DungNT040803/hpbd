@@ -366,26 +366,8 @@ export class BirthdayCake {
     });
   }
 
-  // 5. Standing 3D Golden Calligraphy Topper: "Happy Birthday Azai ✨"
+  // 5. Floating 3D Golden Calligraphy Topper: "Happy Birthday Azai ✨"
   createCakeTopper() {
-    const topperGroup = new THREE.Group();
-
-    // Two thin luxury golden acrylic support sticks
-    const stickGeo = new THREE.CylinderGeometry(0.025, 0.025, 2.7, 12);
-    const goldStickMat = new THREE.MeshStandardMaterial({
-      color: 0xf59e0b,
-      metalness: 0.9,
-      roughness: 0.2
-    });
-
-    const leftStick = new THREE.Mesh(stickGeo, goldStickMat);
-    leftStick.position.set(-1.0, 6.15, -0.4);
-    topperGroup.add(leftStick);
-
-    const rightStick = new THREE.Mesh(stickGeo, goldStickMat);
-    rightStick.position.set(1.0, 6.15, -0.4);
-    topperGroup.add(rightStick);
-
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 160;
@@ -416,12 +398,12 @@ export class BirthdayCake {
       depthWrite: false
     });
     const plaque = new THREE.Sprite(plaqueMat);
-    // Placed at y = 7.65 so it floats clearly and gracefully ABOVE the candle flames (no overlap!)
+    // Placed at y = 7.65 so it floats clearly and gracefully ABOVE the candle flames (no overlap and no support sticks!)
     plaque.position.set(0, 7.65, -0.4);
     plaque.scale.set(3.4, 1.1, 1);
-    topperGroup.add(plaque);
+    this.topperPlaque = plaque;
 
-    this.group.add(topperGroup);
+    this.group.add(plaque);
   }
 
   createSmokeSystem() {
@@ -454,6 +436,11 @@ export class BirthdayCake {
   update(time) {
     // Elegant slow rotation of the cake display
     this.group.rotation.y += 0.0025;
+
+    // Gentle hovering bob of the floating golden plaque
+    if (this.topperPlaque) {
+      this.topperPlaque.position.y = 7.65 + Math.sin(time * 2.5) * 0.07;
+    }
 
     // Organic, realistic dancing candle flames
     if (!this.isBlown) {
