@@ -207,6 +207,23 @@ class BirthdayApp {
     document.getElementById('btn-auto-tour')?.addEventListener('click', () => this.toggleAutoTour());
     document.getElementById('btn-blow-candles')?.addEventListener('click', () => this.blowCandles());
     document.getElementById('btn-open-letter')?.addEventListener('click', () => this.openLetterModal());
+
+    // Pause video and clean up media container when modal closes
+    const memoryModal = document.getElementById('memory-modal');
+    if (memoryModal) {
+      memoryModal.addEventListener('close', () => {
+        const mediaContainer = document.getElementById('modal-media-container');
+        if (mediaContainer) {
+          const video = mediaContainer.querySelector('video');
+          if (video) {
+            video.pause();
+            video.src = '';
+            video.load();
+          }
+          mediaContainer.innerHTML = '';
+        }
+      });
+    }
   }
 
   // Modern Web Guidance: Light dismiss fallback for <dialog closedby="any">
@@ -373,15 +390,26 @@ class BirthdayApp {
       if (memory.type === 'video') {
         const video = document.createElement('video');
         video.src = memory.url;
+        video.poster = memory.thumb || '';
         video.controls = true;
         video.autoplay = true;
         video.playsInline = true;
+        video.preload = 'auto';
         video.style.width = '100%';
+        video.style.height = 'auto';
+        video.style.maxHeight = '65vh';
+        video.style.borderRadius = '12px';
+        video.style.backgroundColor = '#000';
         mediaContainer.appendChild(video);
+
+        video.play().catch(() => {
+          // Autoplay policy prevented unmuted auto-play, user can click controls
+        });
       } else {
         const img = document.createElement('img');
         img.src = memory.url;
         img.alt = memory.title;
+        img.style.borderRadius = '12px';
         mediaContainer.appendChild(img);
       }
     }
