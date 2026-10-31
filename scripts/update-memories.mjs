@@ -199,3 +199,4 @@ const curatedMemories = [
 const dataPath = path.resolve('public/data/memories.json');
 fs.writeFileSync(dataPath, JSON.stringify(curatedMemories, null, 2), 'utf8');
 console.log('Successfully written curated memories without dates to public/data/memories.json');
+
