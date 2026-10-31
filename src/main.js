@@ -14,6 +14,7 @@ class BirthdayApp {
     this.currentIndex = 0;
     this.isAutoTour = false;
     this.autoTourTimer = null;
+    this.hasStarted = false;
 
     // Spline-based smooth camera flight
     this.currentProgress = 0;
@@ -166,7 +167,9 @@ class BirthdayApp {
 
     // Raycast click on 3D cards
     window.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('#hud-overlay, #cake-ceremony-panel, dialog')) return;
+      // If intro screen is still open, DO NOT raycast or click 3D cards!
+      if (!this.hasStarted) return;
+      if (e.target.closest('#intro-screen, #hud-overlay, #cake-ceremony-panel, dialog')) return;
 
       this.raycaster.setFromCamera(this.mouse, this.camera);
       const intersects = this.raycaster.intersectObjects(this.universe.cardMeshes, false);
@@ -177,7 +180,7 @@ class BirthdayApp {
 
     // Silky Smooth Mouse Wheel flight along curve
     window.addEventListener('wheel', (e) => {
-      if (document.querySelector('dialog[open]')) return;
+      if (!this.hasStarted || document.querySelector('dialog[open]')) return;
       const delta = e.deltaY * 0.00035;
       this.targetProgress = Math.max(0, Math.min(1, this.targetProgress + delta));
     }, { passive: true });
@@ -189,15 +192,32 @@ class BirthdayApp {
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
-      if (document.querySelector('dialog[open]')) return;
+      if (!this.hasStarted || document.querySelector('dialog[open]')) return;
       const touchY = e.touches[0].clientY;
       const deltaY = (touchStartY - touchY) * 0.0008;
       touchStartY = touchY;
       this.targetProgress = Math.max(0, Math.min(1, this.targetProgress + deltaY));
     }, { passive: true });
 
-    // UI Buttons
-    document.getElementById('btn-start')?.addEventListener('click', () => this.startExperience());
+    // UI Buttons & Intro Screen Dismissal
+    const startBtn = document.getElementById('btn-start');
+    const introScreen = document.getElementById('intro-screen');
+
+    startBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.startExperience();
+    });
+
+    introScreen?.addEventListener('click', (e) => {
+      this.startExperience();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (!this.hasStarted && (e.code === 'Space' || e.code === 'Enter')) {
+        this.startExperience();
+      }
+    });
+
     document.getElementById('btn-next')?.addEventListener('click', () => this.nextMemory());
     document.getElementById('btn-prev')?.addEventListener('click', () => this.prevMemory());
     document.getElementById('btn-warp-cake')?.addEventListener('click', () => this.flyToIndex(this.memories.length));
@@ -241,16 +261,29 @@ class BirthdayApp {
   }
 
   startExperience() {
-    sound.startBackgroundMusic();
-    sound.playWhoosh();
+    if (this.hasStarted) return;
+    this.hasStarted = true;
+
+    try {
+      sound.startBackgroundMusic();
+      sound.playWhoosh();
+    } catch (err) {
+      console.warn('Audio start error:', err);
+    }
 
     const intro = document.getElementById('intro-screen');
     const hud = document.getElementById('hud-overlay');
 
-    if (intro) intro.classList.add('hidden');
-    if (hud) hud.classList.remove('hidden');
+    if (intro) {
+      intro.classList.add('hidden');
+      intro.style.display = 'none';
+    }
+    if (hud) {
+      hud.classList.remove('hidden');
+      hud.style.display = 'flex';
+    }
 
-    this.flyToIndex(0, 2.2);
+    this.flyToIndex(0, 1.8);
   }
 
   flyToIndex(index, duration = 1.6) {

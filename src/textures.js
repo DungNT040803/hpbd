@@ -86,3 +86,4 @@ export function createHeartTexture() {
   texture.needsUpdate = true;
   return texture;
 }
+
