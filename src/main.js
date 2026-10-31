@@ -81,27 +81,26 @@ class BirthdayApp {
     if (introSubtitle) introSubtitle.innerText = this.config.subtitle;
     if (logoText) logoText.innerText = `HPBD ${this.config.recipientName}`;
 
-    // Populate Year navigation chips
+    // Populate Milestone navigation chips (clean, no dates)
     const yearNav = document.getElementById('year-nav-container');
     if (yearNav && this.memories.length > 0) {
-      const years = Array.from(new Set(this.memories.map(m => m.year))).sort();
-      years.forEach(year => {
+      const milestones = [
+        { label: '🌟 Kỷ Niệm 1', idx: 0 },
+        { label: '📸 Kỷ Niệm 6', idx: 5 },
+        { label: '💬 Kỷ Niệm 12', idx: 11 },
+        { label: '✨ Kỷ Niệm 18', idx: 17 },
+        { label: '🎂 Bánh Sinh Nhật', idx: this.memories.length }
+      ];
+
+      milestones.forEach(m => {
         const chip = document.createElement('button');
         chip.className = 'year-chip';
-        chip.innerText = `${year}`;
+        chip.innerText = m.label;
         chip.addEventListener('click', () => {
-          const firstIdx = this.memories.findIndex(m => m.year === year);
-          if (firstIdx !== -1) this.goToStep(firstIdx);
+          this.goToStep(m.idx);
         });
         yearNav.appendChild(chip);
       });
-
-      // Cake shortcut chip
-      const cakeChip = document.createElement('button');
-      cakeChip.className = 'year-chip';
-      cakeChip.innerText = '🎂 Bánh Sinh Nhật';
-      cakeChip.addEventListener('click', () => this.goToStep(this.memories.length));
-      yearNav.appendChild(cakeChip);
     }
   }
 
@@ -403,7 +402,7 @@ class BirthdayApp {
     } else {
       const currentMem = this.memories[this.currentIndex];
       if (indicator && currentMem) {
-        indicator.innerText = `[${this.currentIndex + 1} / ${this.memories.length}] • ${currentMem.date}`;
+        indicator.innerText = `[${this.currentIndex + 1} / ${this.memories.length}] • ${currentMem.title}`;
       }
       if (cakePanel) cakePanel.classList.add('hidden');
       if (floatNext) {
@@ -413,7 +412,10 @@ class BirthdayApp {
           label.innerText = (this.currentIndex === this.memories.length - 1) ? 'Tới Bánh Sinh Nhật 🎂' : 'Tiếp Theo';
         }
       }
-      chips.forEach(c => c.classList.toggle('active', currentMem && c.innerText === `${currentMem.year}`));
+      chips.forEach((c, idx) => {
+        // Highlight milestone chips if applicable
+        c.classList.toggle('active', (idx === 0 && this.currentIndex < 5) || (idx === 1 && this.currentIndex >= 5 && this.currentIndex < 11) || (idx === 2 && this.currentIndex >= 11 && this.currentIndex < 17) || (idx === 3 && this.currentIndex >= 17 && this.currentIndex < this.memories.length));
+      });
     }
   }
 
@@ -452,14 +454,12 @@ class BirthdayApp {
     const modal = document.getElementById('memory-modal');
     const mediaContainer = document.getElementById('modal-media-container');
     const title = document.getElementById('modal-title');
-    const date = document.getElementById('modal-date');
     const caption = document.getElementById('modal-caption');
     const badge = document.getElementById('modal-type-badge');
 
     if (title) title.innerText = memory.title;
-    if (date) date.innerText = `📅 ${memory.date}`;
     if (caption) caption.innerText = memory.caption;
-    if (badge) badge.innerText = memory.type === 'video' ? '🎬 Video' : '📸 Kỷ Niệm';
+    if (badge) badge.innerText = memory.type === 'video' ? '🎬 Video Kỷ Niệm' : '📸 Khoảnh Khắc Đẹp';
 
     if (mediaContainer) {
       mediaContainer.innerHTML = '';

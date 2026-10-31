@@ -219,8 +219,8 @@ export class MemoryUniverse {
     haloMesh.position.set(0, 0, -depth / 2 - 0.01);
     cardGroup.add(haloMesh);
 
-    // Date badge floating above card
-    const badge = this.createBadgeSprite(`✨ ${memory.date}`);
+    // Memory badge floating above card (timeless title, no dates)
+    const badge = this.createBadgeSprite(`✨ Kỷ Niệm ${index + 1}`);
     badge.position.set(0, height / 2 + 0.75, 0.1);
     cardGroup.add(badge);
 
