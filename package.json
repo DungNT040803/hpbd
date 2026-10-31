@@ -1,0 +1,25 @@
+{
+  "name": "hpbd-space-journey",
+  "version": "1.0.0",
+  "description": "3D Cosmic Birthday Celebration Journey with Three.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist",
+    "process-assets": "node scripts/process-assets.mjs && node scripts/generate-posters.mjs"
+  },
+  "dependencies": {
+    "canvas-confetti": "^1.9.4",
+    "gsap": "^3.14.2",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.3.0",
+    "heic-convert": "^2.1.0",
+    "sharp": "^0.34.5",
+    "vite": "^7.1.12"
+  }
+}
