@@ -368,17 +368,35 @@ export class BirthdayCake {
 
   // 5. Standing 3D Golden Calligraphy Topper: "Happy Birthday Azai ✨"
   createCakeTopper() {
+    const topperGroup = new THREE.Group();
+
+    // Two thin luxury golden acrylic support sticks
+    const stickGeo = new THREE.CylinderGeometry(0.025, 0.025, 2.7, 12);
+    const goldStickMat = new THREE.MeshStandardMaterial({
+      color: 0xf59e0b,
+      metalness: 0.9,
+      roughness: 0.2
+    });
+
+    const leftStick = new THREE.Mesh(stickGeo, goldStickMat);
+    leftStick.position.set(-1.0, 6.15, -0.4);
+    topperGroup.add(leftStick);
+
+    const rightStick = new THREE.Mesh(stickGeo, goldStickMat);
+    rightStick.position.set(1.0, 6.15, -0.4);
+    topperGroup.add(rightStick);
+
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 160;
     const ctx = canvas.getContext('2d');
 
     // Acrylic gold plaque background
-    ctx.fillStyle = 'rgba(24, 24, 45, 0.85)';
+    ctx.fillStyle = 'rgba(20, 18, 42, 0.92)';
     ctx.strokeStyle = '#fbbf24';
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.roundRect(6, 6, 500, 148, 28);
+    ctx.roundRect(6, 6, 500, 148, 30);
     ctx.fill();
     ctx.stroke();
 
@@ -388,7 +406,7 @@ export class BirthdayCake {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = '#f59e0b';
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 14;
     ctx.fillText('🎂 Happy Birthday Azai ✨', 256, 80);
 
     const texture = new THREE.CanvasTexture(canvas);
@@ -398,9 +416,12 @@ export class BirthdayCake {
       depthWrite: false
     });
     const plaque = new THREE.Sprite(plaqueMat);
-    plaque.position.set(0, 5.9, -0.4);
+    // Placed at y = 7.65 so it floats clearly and gracefully ABOVE the candle flames (no overlap!)
+    plaque.position.set(0, 7.65, -0.4);
     plaque.scale.set(3.4, 1.1, 1);
-    this.group.add(plaque);
+    topperGroup.add(plaque);
+
+    this.group.add(topperGroup);
   }
 
   createSmokeSystem() {

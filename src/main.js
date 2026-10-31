@@ -321,8 +321,8 @@ class BirthdayApp {
 
     if (isCake) {
       const cakePos = this.universe.cakePosition;
-      targetCamPos = new THREE.Vector3(cakePos.x, cakePos.y + 4.0, cakePos.z + 13.0);
-      targetLook = new THREE.Vector3(cakePos.x, cakePos.y + 2.2, cakePos.z);
+      targetCamPos = new THREE.Vector3(cakePos.x, cakePos.y + 4.6, cakePos.z + 14.5);
+      targetLook = new THREE.Vector3(cakePos.x, cakePos.y + 3.4, cakePos.z);
     } else {
       const cardPos = this.universe.cardMeshes[this.currentIndex].userData.initialPos;
       targetCamPos = new THREE.Vector3(cardPos.x, cardPos.y + 0.35, cardPos.z + 7.5);

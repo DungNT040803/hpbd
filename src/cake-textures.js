@@ -187,3 +187,4 @@ export function createFlameGlowTexture() {
   texture.needsUpdate = true;
   return texture;
 }
+
