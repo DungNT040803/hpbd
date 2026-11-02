@@ -9,8 +9,9 @@ import {
 } from './cake-textures.js';
 
 export class BirthdayCake {
-  constructor(scene) {
+  constructor(scene, recipientName = 'Azai') {
     this.scene = scene;
+    this.recipientName = recipientName;
     this.group = new THREE.Group();
     this.candles = [];
     this.flames = [];
@@ -383,13 +384,13 @@ export class BirthdayCake {
     ctx.stroke();
 
     // Golden Calligraphy Text
-    ctx.font = 'bold 36px "Dancing Script", cursive, system-ui';
+    ctx.font = 'bold 34px "Dancing Script", cursive, system-ui';
     ctx.fillStyle = '#fef08a';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = '#f59e0b';
     ctx.shadowBlur = 14;
-    ctx.fillText('🎂 Happy Birthday Azai ✨', 256, 80);
+    ctx.fillText(`🎂 Happy Birthday ${this.recipientName} ✨`, 256, 80);
 
     const texture = new THREE.CanvasTexture(canvas);
     const plaqueMat = new THREE.SpriteMaterial({

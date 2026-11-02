@@ -49,9 +49,10 @@ class BirthdayApp {
 
   async loadData() {
     try {
+      const cacheBust = `?t=${Date.now()}`;
       const [configRes, memRes] = await Promise.all([
-        fetch('./data/config.json'),
-        fetch('./data/memories.json')
+        fetch(`./data/config.json${cacheBust}`),
+        fetch(`./data/memories.json${cacheBust}`)
       ]);
       this.config = await configRes.json();
       this.memories = await memRes.json();
@@ -143,7 +144,7 @@ class BirthdayApp {
     });
 
     // 3D Birthday Cake
-    this.cake = new BirthdayCake(this.scene);
+    this.cake = new BirthdayCake(this.scene, this.config?.recipientName || 'Azai');
     this.cake.group.position.copy(this.universe.cakePosition);
 
     // Initial camera position
