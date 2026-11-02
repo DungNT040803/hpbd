@@ -1,0 +1,9 @@
+# Normalize line endings to avoid LF/CRLF warnings on Windows
+* text=auto
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.css text eol=lf
+*.html text eol=lf
